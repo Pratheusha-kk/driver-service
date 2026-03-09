@@ -32,8 +32,13 @@ pipeline {
           def scannerHome = null
           try {
             scannerHome = tool(env.SONAR_SCANNER_TOOL)
-            echo "Using SonarScanner from Jenkins tool '${env.SONAR_SCANNER_TOOL}': ${scannerHome}"
           } catch (Exception e) {
+            scannerHome = null
+          }
+
+          if (scannerHome) {
+            echo "Using SonarScanner from Jenkins tool '${env.SONAR_SCANNER_TOOL}': ${scannerHome}"
+          } else {
             echo "WARN: No Jenkins tool named '${env.SONAR_SCANNER_TOOL}' found. Falling back to 'sonar-scanner' on PATH."
           }
 
@@ -49,7 +54,16 @@ pipeline {
             } else {
               sh '''
                 set -euxo pipefail
-                command -v sonar-scanner
+
+                if ! command -v sonar-scanner >/dev/null 2>&1; then
+                  echo "ERROR: SonarScanner is not available."
+                  echo "Fix ONE of the following on the Jenkins agent:"
+                  echo "  1) Install SonarScanner CLI so 'sonar-scanner' is on PATH, OR"
+                  echo "  2) Configure SonarScanner under Manage Jenkins -> Global Tool Configuration"
+                  echo "     and set SONAR_SCANNER_TOOL in Jenkinsfile to that exact tool name."
+                  exit 2
+                fi
+
                 sonar-scanner --version
                 sonar-scanner
               '''
