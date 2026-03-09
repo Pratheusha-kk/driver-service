@@ -22,7 +22,6 @@ pipeline {
     stage('Checkout') {
       steps {
         checkout scm
-        git pull
       }
     }
     stage('SonarQube: Static Analysis') {
