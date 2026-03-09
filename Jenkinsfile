@@ -22,6 +22,17 @@ pipeline {
     stage('Checkout') {
       steps {
         checkout scm
+        git pull
+      }
+    }
+
+    stage('SonarQube: Static Analysis') {
+      steps {
+        withSonarQubeEnv("${SONARQUBE_SERVER}") {
+          sh '''
+            sonar-scanner
+          '''
+        }
       }
     }
 
@@ -38,15 +49,6 @@ pipeline {
       }
     }
 
-    stage('SonarQube: Static Analysis') {
-      steps {
-        withSonarQubeEnv("${SONARQUBE_SERVER}") {
-          sh '''
-            sonar-scanner
-          '''
-        }
-      }
-    }
 
     stage('Docker: Build Image') {
       steps {
