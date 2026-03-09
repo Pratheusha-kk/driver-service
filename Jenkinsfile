@@ -14,8 +14,8 @@ pipeline {
     SONARQUBE_SERVER = "LocalSonar"
 
     // Jenkins Global Tool Configuration name for SonarScanner
-    // Change this to match your Jenkins tool name if different.
-    SONAR_SCANNER_TOOL = "sonar-scanner"
+    // Common name is "SonarScanner" (case-sensitive). Change if your Jenkins tool name differs.
+    SONAR_SCANNER_TOOL = "SonarScanner"
   }
 
   stages {
@@ -28,7 +28,23 @@ pipeline {
       steps {
         withSonarQubeEnv("${SONARQUBE_SERVER}") {
           sh '''
-            sonar-scanner
+            set -euxo pipefail
+
+            # Resolve SonarScanner from Jenkins Global Tool Configuration
+            SCANNER_HOME="$(tool "${SONAR_SCANNER_TOOL}")"
+
+            echo "Resolved SonarScanner tool home: ${SCANNER_HOME}"
+            ls -la "${SCANNER_HOME}/bin" || true
+
+            if [ ! -x "${SCANNER_HOME}/bin/sonar-scanner" ]; then
+              echo "ERROR: SonarScanner not found at ${SCANNER_HOME}/bin/sonar-scanner"
+              echo "Fix: Jenkins -> Manage Jenkins -> Global Tool Configuration -> SonarScanner"
+              echo "Then set SONAR_SCANNER_TOOL in Jenkinsfile to that exact tool name."
+              exit 2
+            fi
+
+            "${SCANNER_HOME}/bin/sonar-scanner" --version
+            "${SCANNER_HOME}/bin/sonar-scanner"
           '''
         }
       }
