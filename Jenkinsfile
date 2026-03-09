@@ -28,6 +28,7 @@ pipeline {
       steps {
         withSonarQubeEnv("${SONARQUBE_SERVER}") {
           sh '''
+            export PATH="/opt:$PATH"
             sonar --version
             sonar analyse
           '''
