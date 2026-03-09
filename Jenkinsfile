@@ -13,9 +13,10 @@ pipeline {
     // Must match exactly, otherwise withSonarQubeEnv() fails.
     SONARQUBE_SERVER = "LocalSonar"
 
-    // Jenkins Global Tool Configuration name for SonarScanner
-    // Common name is "SonarScanner" (case-sensitive). Change if your Jenkins tool name differs.
-    SONAR_SCANNER_TOOL = "SonarScanner"
+    // Jenkins Global Tool Configuration name for SonarScanner (case-sensitive).
+    // Set this to the exact tool name configured in: Manage Jenkins -> Global Tool Configuration.
+    // If you don't have a tool configured, the pipeline will fall back to `sonar-scanner` on PATH.
+    SONAR_SCANNER_TOOL = "sonar-scanner"
   }
 
   stages {
@@ -27,26 +28,30 @@ pipeline {
     stage('SonarQube: Static Analysis') {
       steps {
         script {
-          // Resolve SonarScanner from Jenkins Global Tool Configuration (Groovy step, not a shell command)
-          def scannerHome = tool(env.SONAR_SCANNER_TOOL)
+          // Resolve SonarScanner from Jenkins Global Tool Configuration if present; otherwise fall back to PATH
+          def scannerHome = null
+          try {
+            scannerHome = tool(env.SONAR_SCANNER_TOOL)
+            echo "Using SonarScanner from Jenkins tool '${env.SONAR_SCANNER_TOOL}': ${scannerHome}"
+          } catch (Exception e) {
+            echo "WARN: No Jenkins tool named '${env.SONAR_SCANNER_TOOL}' found. Falling back to 'sonar-scanner' on PATH."
+          }
 
           withSonarQubeEnv("${SONARQUBE_SERVER}") {
-            withEnv(["SCANNER_HOME=${scannerHome}"]) {
+            if (scannerHome) {
+              withEnv(["SCANNER_HOME=${scannerHome}"]) {
+                sh '''
+                  set -euxo pipefail
+                  "${SCANNER_HOME}/bin/sonar-scanner" --version
+                  "${SCANNER_HOME}/bin/sonar-scanner"
+                '''
+              }
+            } else {
               sh '''
                 set -euxo pipefail
-
-                echo "Resolved SonarScanner tool home: ${SCANNER_HOME}"
-                ls -la "${SCANNER_HOME}/bin" || true
-
-                if [ ! -x "${SCANNER_HOME}/bin/sonar-scanner" ]; then
-                  echo "ERROR: SonarScanner not found at ${SCANNER_HOME}/bin/sonar-scanner"
-                  echo "Fix: Jenkins -> Manage Jenkins -> Global Tool Configuration -> SonarScanner"
-                  echo "Then set SONAR_SCANNER_TOOL in Jenkinsfile to that exact tool name."
-                  exit 2
-                fi
-
-                "${SCANNER_HOME}/bin/sonar-scanner" --version
-                "${SCANNER_HOME}/bin/sonar-scanner"
+                command -v sonar-scanner
+                sonar-scanner --version
+                sonar-scanner
               '''
             }
           }
