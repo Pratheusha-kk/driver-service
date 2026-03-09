@@ -30,7 +30,7 @@ pipeline {
           sh '''
             export PATH="/opt:$PATH"
             sonar --version
-            sonar analyse
+            sonar analyze
           '''
         }
       }
