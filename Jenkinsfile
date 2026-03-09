@@ -42,6 +42,7 @@ pipeline {
       steps {
         withSonarQubeEnv("${SONARQUBE_SERVER}") {
           sh '''
+            sonar-scanner
             set -euxo pipefail
 
             # Use SonarScanner installed/configured in Jenkins Global Tool Configuration
