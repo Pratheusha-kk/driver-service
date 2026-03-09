@@ -151,6 +151,27 @@ This repo includes a `Jenkinsfile` that you can use in a Jenkins **Pipeline** jo
 - Python 3.x + `python3` available on PATH
 - Docker installed and usable by the Jenkins agent user
 - `curl` available (used for smoke testing endpoints)
+- SonarQube CLI available on PATH as `sonar` (the pipeline prints `sonar --version`)
+
+### SonarQube setup (server + secrets)
+
+The pipeline runs `sonar analyze --file sonar-project.properties` and expects the following configuration:
+
+1. Jenkins global config:
+
+- Configure **Manage Jenkins → System → SonarQube servers**
+- Add a server entry whose **Name** matches `SONARQUBE_SERVER` in the Jenkinsfile (default: `LocalSonar`)
+
+2. Jenkins credentials:
+   Create these credentials (type: **Secret text**):
+
+- `sonarqube-url` — SonarQube server URL (example: `http://sonarqube:9000`)
+- `sonarqube-token` — SonarQube user token
+
+The Jenkinsfile binds them to environment variables:
+
+- `SONAR_HOST_URL`
+- `SONAR_TOKEN`
 
 ### How to hook this repo to Jenkins
 
@@ -166,8 +187,9 @@ This repo includes a `Jenkinsfile` that you can use in a Jenkins **Pipeline** jo
 ### What the Jenkins pipeline does
 
 - Checks out code
+- Runs SonarQube static analysis using `sonar-project.properties`
 - Creates a Python venv and runs **PyUnit** tests
-- Builds a Docker image tagged like `aceest-app:jenkins-<build_number>`
+- Builds a Docker image tagged like `aceest-<build_number>`
 - Runs the container and performs a basic smoke test on:
   - `GET /`
   - `GET /programs`
