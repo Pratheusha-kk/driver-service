@@ -177,9 +177,9 @@ pipeline {
     stage('Docker: Push Image to Artifactory') {
       environment {
         // Override these with your real Artifactory config
-        ARTIFACTORY_REGISTRY = 'artifactory.example.com' // e.g. artifactory.mycompany.com
+        ARTIFACTORY_REGISTRY = 'https://trial5okz6u.jfrog.io/' // e.g. artifactory.mycompany.com
         ARTIFACTORY_REPO     = 'docker-local'            // e.g. docker, docker-local
-        ARTIFACTORY_CRED_ID  = 'artifactory-docker-creds'
+        ARTIFACTORY_CRED_ID  = 'jfrogcred'
         // Optional override: provide a different tag for Artifactory, else fall back to IMAGE_TAG
         ARTIFACTORY_IMAGE_TAG = ''
       }
