@@ -55,6 +55,7 @@ pipeline {
         UI_IMAGE_NAME     = "${IMAGE_NAME}:${IMAGE_TAG}"
         UI_CONTAINER_NAME = "aceest-ui-tests"
         UI_BASE_URL       = "http://127.0.0.1:5000/gui"
+        UI_HEALTH_URL     = "http://127.0.0.1:5000/health"
       }
       steps {
         sh '''
@@ -75,7 +76,7 @@ pipeline {
           }
           trap cleanup EXIT
 
-          # --- Check container status only (no HTTP polling here) ---
+          # --- Check container status + HTTP /health endpoint ---
 
           # Wait briefly for container to transition to running
           sleep 5
@@ -87,13 +88,43 @@ pipeline {
             exit 1
           fi
 
-          # If a HEALTHCHECK is defined in the image, this can be uncommented:
-          # HEALTH=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{end}}' "${UI_CONTAINER_NAME}" || true)
-          # echo "Container health: ${HEALTH}"
-          # if [ -n "${HEALTH}" ] && [ "${HEALTH}" != "healthy" ]; then
-          #   echo "ERROR: UI container is not healthy (health=${HEALTH})"
-          #   exit 1
-          # fi
+          # Check health endpoint from Jenkins node
+          MAX_RETRIES=30
+          SLEEP_SEC=1
+          TARGET_URL="${UI_HEALTH_URL}"
+
+          echo "Checking app health at ${TARGET_URL} ..."
+
+          if command -v curl >/dev/null 2>&1; then
+            for i in $(seq 1 "$MAX_RETRIES"); do
+              if curl -fsS "${TARGET_URL}" >/dev/null 2>&1; then
+                echo "Health endpoint OK on attempt $i"
+                break
+              fi
+              echo "Health not ready yet (attempt $i/$MAX_RETRIES). Retrying in $SLEEP_SEC sec..."
+              sleep "$SLEEP_SEC"
+              if [ "$i" -eq "$MAX_RETRIES" ]; then
+                echo "ERROR: Health endpoint did not become ready in time"
+                exit 1
+              fi
+            done
+          elif command -v wget >/dev/null 2>&1; then
+            for i in $(seq 1 "$MAX_RETRIES"); do
+              if wget -qO- "${TARGET_URL}" >/dev/null 2>&1; then
+                echo "Health endpoint OK on attempt $i"
+                break
+              fi
+              echo "Health not ready yet (attempt $i/$MAX_RETRIES). Retrying in $SLEEP_SEC sec..."
+              sleep "$SLEEP_SEC"
+              if [ "$i" -eq "$MAX_RETRIES" ]; then
+                echo "ERROR: Health endpoint did not become ready in time"
+                exit 1
+              fi
+            done
+          else
+            echo "ERROR: Neither curl nor wget is available to check app health."
+            exit 1
+          fi
 
           # --- Run UI automation inside the container ---
 
@@ -101,7 +132,7 @@ pipeline {
           docker exec "${UI_CONTAINER_NAME}" python -m pip install --upgrade pip
           docker exec "${UI_CONTAINER_NAME}" python -m pip install -r /app/ui-tests/requirements.txt
 
-          # Run behave inside the container; tests will handle their own startup wait
+          # Run behave inside the container
           docker exec -e BASE_URL="${UI_BASE_URL}" "${UI_CONTAINER_NAME}" behave -k /app/ui-tests
         '''
       }

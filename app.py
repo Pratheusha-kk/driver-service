@@ -26,6 +26,8 @@ PROGRAMS = {
         "description": "Muscle gain program",
         "workout": (
             "Mon: Squat 5x5\n"
+
+            "Mon: Squat 5x5\n"
             "Tue: Bench 5x5\n"
             "Wed: Deadlift 4x6\n"
             "Thu: Front Squat 4x8\n"
@@ -64,6 +66,11 @@ PROGRAMS = {
 @app.route("/")
 def index():
     return jsonify({"message": "ACEest Fitness & Gym API is running"})
+
+
+@app.route("/health")
+def health():
+    return jsonify({"status": "healthy"}), 200
 
 
 # --------------------
