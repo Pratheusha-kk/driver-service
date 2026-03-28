@@ -126,14 +126,19 @@ pipeline {
             exit 1
           fi
 
-          # --- Run UI automation inside the container ---
+          # --- Run UI automation on the Jenkins agent against the containerized app ---
 
-          # Install UI test dependencies (including behave) inside the container
-          docker exec "${UI_CONTAINER_NAME}" python -m pip install --upgrade pip
-          docker exec "${UI_CONTAINER_NAME}" python -m pip install -r /app/ui-tests/requirements.txt
+          # Create and activate a venv on the agent for UI tests
+          python3 -m venv .venv-ui
+          . .venv-ui/bin/activate
+          python -m pip install --upgrade pip
 
-          # Run behave from /app/ui-tests so it finds features/ and steps/
-          docker exec -e BASE_URL="${UI_BASE_URL}" "${UI_CONTAINER_NAME}" sh -lc 'cd /app/ui-tests && python -m behave'
+          # Install UI test requirements on the agent (includes behave, selenium, webdriver-manager, etc.)
+          python -m pip install -r ui-tests/requirements.txt
+
+          # Run behave from the ui-tests directory, pointing to the app in the container
+          cd ui-tests
+          BASE_URL="${UI_BASE_URL}" python -m behave
         '''
       }
     }
