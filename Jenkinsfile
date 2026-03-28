@@ -30,7 +30,8 @@ pipeline {
             set -euxo pipefail
             export PATH="/opt:$PATH"
             sonar --version
-            sonar install secrets
+            # Only install secrets once, not every build
+            sonar plugins list || sonar install secrets
             ls -al
             sonar analyze --file sonar-project.properties
           '''
