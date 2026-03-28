@@ -102,6 +102,24 @@ class AceestIntegrationTestCase(unittest.TestCase):
         self.assertIsInstance(data["Muscle Gain (MG)"]["calorie_factor"], int)
         self.assertIsInstance(data["Beginner (BG)"]["calorie_factor"], int)
 
+        for program_name in ["Fat Loss (FL)", "Muscle Gain (MG)", "Beginner (BG)"]:
+            self.assertIn("workout", data[program_name])
+            self.assertIn("diet", data[program_name])
+            self.assertIsInstance(data[program_name]["workout"], str)
+            self.assertIsInstance(data[program_name]["diet"], str)
+
+    def test_estimate_calories_over_http(self):
+        resp = requests.get(
+            f"{self.base_url}/estimate-calories",
+            params={"program": "Fat Loss (FL)", "weight_kg": 80},
+            timeout=2,
+        )
+        self.assertEqual(resp.status_code, 200)
+        payload = resp.json()
+        self.assertEqual(payload["program"], "Fat Loss (FL)")
+        self.assertEqual(payload["calorie_factor"], 22)
+        self.assertEqual(payload["calories_kcal"], 1760)
+
 
 if __name__ == "__main__":
     unittest.main()

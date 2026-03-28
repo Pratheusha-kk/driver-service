@@ -1,0 +1,23 @@
+{% extends "layout.html" %} {% block title %}Programs — ACEest{% endblock %} {%
+block content %}
+<section class="card">
+  <h1>Programs</h1>
+  <p class="muted">Click a program to see workout and diet details.</p>
+
+  <div class="program-grid">
+    {% for name, p in programs.items() %}
+    <a
+      class="program"
+      href="{{ url_for('gui_program_detail', program_name=name) }}"
+    >
+      <div class="program__swatch" style="background: {{ p.color }}"></div>
+      <div class="program__body">
+        <div class="program__title">{{ name }}</div>
+        <div class="program__desc muted">{{ p.description }}</div>
+        <div class="pill">Calorie factor: {{ p.calorie_factor }}</div>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

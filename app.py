@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, abort
+from flask import Flask, jsonify, request, abort, render_template
 
 app = Flask(__name__)
 
@@ -64,6 +64,72 @@ PROGRAMS = {
 @app.route("/")
 def index():
     return jsonify({"message": "ACEest Fitness & Gym API is running"})
+
+
+# --------------------
+# Web GUI (HTML pages)
+# --------------------
+@app.route("/gui")
+def gui_home():
+    return render_template("index.html")
+
+
+@app.route("/gui/programs")
+def gui_programs():
+    return render_template("programs.html", programs=PROGRAMS)
+
+
+@app.route("/gui/programs/<path:program_name>")
+def gui_program_detail(program_name: str):
+    if program_name not in PROGRAMS:
+        abort(404, description="Unknown program")
+    return render_template(
+        "program_detail.html",
+        program_name=program_name,
+        program=PROGRAMS[program_name],
+    )
+
+
+@app.route("/gui/calories")
+def gui_calorie_estimator():
+    selected_program = request.args.get("program", type=str)
+    weight_kg = request.args.get("weight_kg", type=float)
+
+    error = None
+    result = None
+
+    if selected_program and weight_kg is not None:
+        try:
+            # Reuse the same validation rules as the API.
+            if selected_program not in PROGRAMS:
+                raise ValueError("Unknown program")
+            if weight_kg <= 0:
+                raise ValueError("Weight must be > 0")
+
+            calories = int(weight_kg * PROGRAMS[selected_program]["calorie_factor"])
+            result = {
+                "program": selected_program,
+                "weight_kg": weight_kg,
+                "calorie_factor": PROGRAMS[selected_program]["calorie_factor"],
+                "calories_kcal": calories,
+            }
+        except Exception as e:
+            error = str(e)
+
+    # Build option models in Python to avoid Jinja conditionals inside HTML attributes
+    # (some formatters break `{% if selected_program == name %}`).
+    program_options = [
+        {"name": name, "selected": (name == selected_program)} for name in PROGRAMS.keys()
+    ]
+
+    return render_template(
+        "calories.html",
+        program_options=program_options,
+        selected_program=selected_program,
+        weight_kg=weight_kg,
+        error=error,
+        result=result,
+    )
 
 
 @app.route("/programs")
