@@ -51,15 +51,58 @@ pipeline {
     }
 
     stage('UI Tests') {
+      environment {
+        UI_IMAGE_NAME     = "${IMAGE_NAME}:${IMAGE_TAG}"
+        UI_CONTAINER_NAME = "aceest-ui-tests"
+        UI_BASE_URL       = "http://127.0.0.1:5000/gui"
+      }
       steps {
         sh '''
           set -euxo pipefail
-          python3 -m venv .venv-ui
-          . .venv-ui/bin/activate
-          python -m pip install --upgrade pip
-          python -m pip install -r ui-tests/requirements.txt
-          cd ui-tests
-          behave
+
+          # Build the app image (re-use main image/tag)
+          docker build -t "${UI_IMAGE_NAME}" .
+
+          # Clean up any stale container
+          docker rm -f "${UI_CONTAINER_NAME}" 2>/dev/null || true
+
+          # Run the app container in the background
+          docker run -d --name "${UI_CONTAINER_NAME}" -p 5000:5000 "${UI_IMAGE_NAME}"
+
+          cleanup() {
+            docker logs "${UI_CONTAINER_NAME}" || true
+            docker rm -f "${UI_CONTAINER_NAME}" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          # --- Check container status only (no HTTP polling here) ---
+
+          # Wait briefly for container to transition to running
+          sleep 5
+
+          STATUS=$(docker inspect -f '{{.State.Status}}' "${UI_CONTAINER_NAME}")
+          echo "Container status: ${STATUS}"
+          if [ "${STATUS}" != "running" ]; then
+            echo "ERROR: UI container is not running (status=${STATUS})"
+            exit 1
+          fi
+
+          # If a HEALTHCHECK is defined in the image, this can be uncommented:
+          # HEALTH=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{end}}' "${UI_CONTAINER_NAME}" || true)
+          # echo "Container health: ${HEALTH}"
+          # if [ -n "${HEALTH}" ] && [ "${HEALTH}" != "healthy" ]; then
+          #   echo "ERROR: UI container is not healthy (health=${HEALTH})"
+          #   exit 1
+          # fi
+
+          # --- Run UI automation inside the container ---
+
+          # Upgrade pip and install UI test dependencies in container
+          docker exec "${UI_CONTAINER_NAME}" python -m pip install --upgrade pip
+          docker exec "${UI_CONTAINER_NAME}" python -m pip install -r /app/ui-tests/requirements.txt
+
+          # Run behave inside the container; tests will handle their own startup wait
+          docker exec -e BASE_URL="${UI_BASE_URL}" "${UI_CONTAINER_NAME}" behave -k /app/ui-tests
         '''
       }
     }
