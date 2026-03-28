@@ -132,8 +132,8 @@ pipeline {
           docker exec "${UI_CONTAINER_NAME}" python -m pip install --upgrade pip
           docker exec "${UI_CONTAINER_NAME}" python -m pip install -r /app/ui-tests/requirements.txt
 
-          # Run behave via python -m so we don't rely on a behave binary in PATH
-          docker exec -e BASE_URL="${UI_BASE_URL}" "${UI_CONTAINER_NAME}" python -m behave -k /app/ui-tests
+          # Run behave from /app/ui-tests so it finds features/ and steps/
+          docker exec -e BASE_URL="${UI_BASE_URL}" "${UI_CONTAINER_NAME}" sh -lc 'cd /app/ui-tests && python -m behave'
         '''
       }
     }
