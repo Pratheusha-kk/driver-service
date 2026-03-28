@@ -128,12 +128,12 @@ pipeline {
 
           # --- Run UI automation inside the container ---
 
-          # Upgrade pip and install UI test dependencies in container
+          # Install UI test dependencies (including behave) inside the container
           docker exec "${UI_CONTAINER_NAME}" python -m pip install --upgrade pip
           docker exec "${UI_CONTAINER_NAME}" python -m pip install -r /app/ui-tests/requirements.txt
 
-          # Run behave inside the container
-          docker exec -e BASE_URL="${UI_BASE_URL}" "${UI_CONTAINER_NAME}" behave -k /app/ui-tests
+          # Run behave via python -m so we don't rely on a behave binary in PATH
+          docker exec -e BASE_URL="${UI_BASE_URL}" "${UI_CONTAINER_NAME}" python -m behave -k /app/ui-tests
         '''
       }
     }
