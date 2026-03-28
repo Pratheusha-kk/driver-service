@@ -177,8 +177,8 @@ pipeline {
     stage('Docker: Push Image to Artifactory') {
       environment {
         // Override these with your real Artifactory config
-        ARTIFACTORY_REGISTRY = 'https://trial5okz6u.jfrog.io/' // e.g. artifactory.mycompany.com
-        ARTIFACTORY_REPO     = 'docker-local'            // e.g. docker, docker-local
+        ARTIFACTORY_REGISTRY = 'trial5okz6u.jfrog.io' // Docker registry host, no protocol, no trailing slash
+        ARTIFACTORY_REPO     = 'docker-local'         // e.g. docker, docker-local
         ARTIFACTORY_CRED_ID  = 'jfrogcred'
         // Optional override: provide a different tag for Artifactory, else fall back to IMAGE_TAG
         ARTIFACTORY_IMAGE_TAG = ''
@@ -217,7 +217,7 @@ pipeline {
               # Tag local image with remote registry/repo + optional tag override
               docker tag "\${LOCAL_IMAGE}" "\${REMOTE_IMAGE}"
 
-              # Login to Artifactory Docker registry
+              # Login to Artifactory Docker registry (note: no https:// in registry name)
               echo "\${ART_PASS}" | docker login "\${ARTIFACTORY_REGISTRY}" \\
                 --username "\${ART_USER}" --password-stdin
 
