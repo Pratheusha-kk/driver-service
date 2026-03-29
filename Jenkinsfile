@@ -299,10 +299,15 @@ pipeline {
                 --docker-custom-image-name "\${IMAGE}" \\
                 --docker-registry-server-url "https://\${AZURE_CONTAINER_REGISTRY_SERVER}" \\
                 --docker-registry-server-user "\${REG_USER}" \\
-                --docker-registry-server-password "\${REG_PASS}" \\
+                --docker-registry-server-password "\${REG_PASS}"
+
+              # Configure app settings for container startup (port, timeout, etc.)
+              az webapp config appsettings set \\
+                --resource-group "${AZURE_RESOURCE_GROUP}" \\
+                --name "${AZURE_WEBAPP_NAME}" \\
                 --settings WEBSITES_PORT=5000 WEBSITES_CONTAINER_START_TIME_LIMIT=1000
 
-              # Restart the Web App to ensure new image is pulled
+              # Restart the Web App to ensure new image is pulled and settings applied
               az webapp restart --resource-group "${AZURE_RESOURCE_GROUP}" --name "${AZURE_WEBAPP_NAME}"
 
               rm -f "\${SP_FILE}"
