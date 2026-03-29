@@ -300,7 +300,7 @@ pipeline {
                 --docker-registry-server-url "https://\${AZURE_CONTAINER_REGISTRY_SERVER}" \\
                 --docker-registry-server-user "\${REG_USER}" \\
                 --docker-registry-server-password "\${REG_PASS}" \\
-                --settings WEBSITES_PORT=5000 WEBSITES_CONTAINER_START_TIME_LIMIT=600
+                --settings WEBSITES_PORT=5000 WEBSITES_CONTAINER_START_TIME_LIMIT=1000
 
               # Restart the Web App to ensure new image is pulled
               az webapp restart --resource-group "${AZURE_RESOURCE_GROUP}" --name "${AZURE_WEBAPP_NAME}"
