@@ -302,8 +302,8 @@ pipeline {
 
               az account set --subscription "\${SUBSCRIPTION}"
 
-              # Construct image reference
-              IMAGE="\${AZURE_CONTAINER_REGISTRY_SERVER}/\${AZURE_CONTAINER_IMAGE_NAME}:\${deployTag}"
+              # Construct image reference (deployTag injected by Groovy)
+              IMAGE="\${AZURE_CONTAINER_REGISTRY_SERVER}/\${AZURE_CONTAINER_IMAGE_NAME}:${deployTag}"
 
               echo "Deploying image to Azure Stage Web App: \${IMAGE}"
 
