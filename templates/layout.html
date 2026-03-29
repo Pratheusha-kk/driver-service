@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}ACEest{% endblock %}</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='styles.css') }}"
+    />
+  </head>
+  <body>
+    <header class="header">
+      <div class="container">
+        <div class="brand">
+          <div class="logo">ACEest</div>
+          <div class="subtitle">Fitness & Gym</div>
+        </div>
+        <nav class="nav">
+          <a href="{{ url_for('gui_home') }}" class="nav__link">Home</a>
+          <a href="{{ url_for('gui_programs') }}" class="nav__link">Programs</a>
+          <a href="{{ url_for('gui_calorie_estimator') }}" class="nav__link"
+            >Calorie Estimator</a
+          >
+          <a href="{{ url_for('programs') }}" class="nav__link nav__link--muted"
+            >API: /programs</a
+          >
+        </nav>
+      </div>
+    </header>
+
+    <main class="container">{% block content %}{% endblock %}</main>
+
+    <footer class="footer">
+      <div class="container">
+        <span class="muted"
+          >API endpoints remain available at <code>/</code>,
+          <code>/programs</code>, <code>/estimate-calories</code>.</span
+        >
+      </div>
+    </footer>
+  </body>
+</html>

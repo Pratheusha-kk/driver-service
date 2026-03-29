@@ -1,0 +1,21 @@
+{% extends "layout.html" %} {% block title %}ACEest Fitness & Gym{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>ACEest Fitness & Gym</h1>
+  <p class="muted">
+    This is a lightweight GUI on top of the Flask API. Use the navigation above
+    to explore programs and estimate calories.
+  </p>
+
+  <div class="grid">
+    <a class="tile" href="{{ url_for('gui_programs') }}">
+      <h2>Browse Programs</h2>
+      <p>See workout + diet details for each program.</p>
+    </a>
+    <a class="tile" href="{{ url_for('gui_calorie_estimator') }}">
+      <h2>Estimate Calories</h2>
+      <p>Pick a program, enter weight (kg), and calculate an estimate.</p>
+    </a>
+  </div>
+</section>
+{% endblock %}

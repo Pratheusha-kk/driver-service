@@ -1,0 +1,38 @@
+{% extends "layout.html" %} {% block title %}{{ program_name }} — ACEest{%
+endblock %} {% block content %}
+<section class="card">
+  <div class="program-hero">
+    <div
+      class="program-hero__swatch"
+      style="background: {{ program.color }}"
+    ></div>
+    <div>
+      <h1 class="program-hero__title">{{ program_name }}</h1>
+      <p class="muted">{{ program.description }}</p>
+      <div class="pill">Calorie factor: {{ program.calorie_factor }}</div>
+    </div>
+  </div>
+
+  <div class="columns">
+    <div class="col">
+      <h2>Workout</h2>
+      <pre class="pre">{{ program.workout }}</pre>
+    </div>
+    <div class="col">
+      <h2>Diet</h2>
+      <pre class="pre">{{ program.diet }}</pre>
+    </div>
+  </div>
+
+  <div class="actions">
+    <a
+      class="button"
+      href="{{ url_for('gui_calorie_estimator', program=program_name) }}"
+      >Estimate calories for this program</a
+    >
+    <a class="button button--secondary" href="{{ url_for('gui_programs') }}"
+      >Back to programs</a
+    >
+  </div>
+</section>
+{% endblock %}
