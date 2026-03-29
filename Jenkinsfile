@@ -248,6 +248,80 @@ pipeline {
       }
     }
 
+    stage('Deploy to Azure Web App (Stage)') {
+      when {
+        expression {
+          // Deploy to stage when the branch is NOT main (e.g. feature branches / PR builds)
+          return env.BRANCH_NAME != 'main'
+        }
+      }
+      environment {
+        // Jenkins credentials: secret text containing SP JSON (tenant, appId, password, subscription)
+        AZURE_CRED_ID = 'azure-sp-credentials'
+
+        // Azure resource details for STAGING
+        AZURE_RESOURCE_GROUP = 'rg-aceest'        // TODO: replace with your stage RG
+        AZURE_WEBAPP_NAME    = 'aceest-webapp-stage'    // TODO: replace with your stage Web App name
+
+        // Container registry / image - from Artifactory docker-local
+        AZURE_CONTAINER_REGISTRY_SERVER = 'trial5okz6u.jfrog.io'
+        AZURE_CONTAINER_IMAGE_NAME      = 'docker-local/aceest-app' // repo/image path
+        // Always deploy the exact tag we pushed to docker-local for this build
+        AZURE_CONTAINER_IMAGE_TAG       = "${IMAGE_TAG}"
+      }
+      steps {
+        withCredentials([
+          string(credentialsId: env.AZURE_CRED_ID, variable: 'AZURE_SP_JSON')
+        ]) {
+          script {
+            // For non-main branches, VERSION_TAG is already IMAGE_TAG, so we just resolve deployTag
+            String deployTag = env.AZURE_CONTAINER_IMAGE_TAG?.trim()
+            if (!deployTag) {
+              deployTag = env.IMAGE_TAG   // aceest-<BUILD_NUMBER> for stage
+            }
+
+            sh """
+              set -euxo pipefail
+
+              # Write SP JSON to a temp file
+              SP_FILE=\$(mktemp)
+              echo "\${AZURE_SP_JSON}" > "\${SP_FILE}"
+
+              TENANT=\$(jq -r '.tenant' "\${SP_FILE}")
+              APPID=\$(jq -r '.appId' "\${SP_FILE}")
+              PASSWORD=\$(jq -r '.password' "\${SP_FILE}")
+              SUBSCRIPTION=\$(jq -r '.subscription' "\${SP_FILE}")
+
+              # Login to Azure using service principal
+              az login --service-principal \\
+                --username "\${APPID}" \\
+                --password "\${PASSWORD}" \\
+                --tenant "\${TENANT}"
+
+              az account set --subscription "\${SUBSCRIPTION}"
+
+              # Construct image reference
+              IMAGE="\${AZURE_CONTAINER_REGISTRY_SERVER}/\${AZURE_CONTAINER_IMAGE_NAME}:\${deployTag}"
+
+              echo "Deploying image to Azure Stage Web App: \${IMAGE}"
+
+              # Configure Stage Web App to use this container image
+              az webapp config container set \\
+                --resource-group "${AZURE_RESOURCE_GROUP}" \\
+                --name "${AZURE_WEBAPP_NAME}" \\
+                --docker-custom-image-name "\${IMAGE}" \\
+                --docker-registry-server-url "https://\${AZURE_CONTAINER_REGISTRY_SERVER}"
+
+              # Restart the Web App to ensure new image is pulled
+              az webapp restart --resource-group "${AZURE_RESOURCE_GROUP}" --name "${AZURE_WEBAPP_NAME}"
+
+              rm -f "\${SP_FILE}"
+            """
+          }
+        }
+      }
+    }
+
     stage('Deploy to Azure Web App (Production)') {
       when {
         expression {
@@ -259,9 +333,9 @@ pipeline {
         // Jenkins credentials: secret text containing SP JSON (tenant, appId, password, subscription)
         AZURE_CRED_ID = 'azure-sp-credentials'
 
-        // Azure resource details
-        AZURE_RESOURCE_GROUP = 'rg-aceest'      // TODO: replace with your RG
-        AZURE_WEBAPP_NAME    = 'aceest-webapp' // TODO: replace with your Web App name
+        // Azure resource details for PRODUCTION
+        AZURE_RESOURCE_GROUP = 'rg-aceest'      // TODO: replace with your prod RG
+        AZURE_WEBAPP_NAME    = 'aceest-webapp' // TODO: replace with your prod Web App name
 
         // Container registry / image - align with your Artifactory/registry setup
         // For production deploys, use the docker-prod repo in Artifactory
