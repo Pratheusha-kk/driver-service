@@ -177,45 +177,22 @@ pipeline {
       }
     }
 
-    stage('Docker: Push Image to Artifactory') {
+    stage('Docker: Push Image to Artifactory (Stage)') {
+      when {
+        expression {
+          // Push to stage repo for all non-main branches
+          return env.BRANCH_NAME != 'main'
+        }
+      }
       environment {
-        // Override these with your real Artifactory config
         ARTIFACTORY_REGISTRY   = 'trial5okz6u.jfrog.io' // Docker registry host, no protocol, no trailing slash
-        ARTIFACTORY_REPO_LOCAL = 'docker-local'         // for non-main branches
-        ARTIFACTORY_REPO_PROD  = 'docker-prod'          // for main (post-merge) builds
+        ARTIFACTORY_REPO_STAGE = 'docker-local'         // stage / non-main branches
         ARTIFACTORY_CRED_ID    = 'jfrogcred'
-        // Optional override: provide a different tag for Artifactory, else fall back to computed tag
-        ARTIFACTORY_IMAGE_TAG  = ''
       }
       steps {
         script {
-          // For main: semantic version v<BUILD_NUMBER>, for others keep IMAGE_TAG
-          if (env.BRANCH_NAME == 'main') {
-            env.VERSION_TAG = "v${env.BUILD_NUMBER}"
-          } else {
-            env.VERSION_TAG = env.IMAGE_TAG
-          }
-
-          // Compute the tag requested
-          String requestedTag = env.ARTIFACTORY_IMAGE_TAG?.trim()
-          String artifactoryTag
-
-          if (env.BRANCH_NAME != 'main') {
-            // non-main: always use IMAGE_TAG (aceest-<build#>)
-            artifactoryTag = env.IMAGE_TAG
-          } else {
-            // main: use VERSION_TAG (vN) unless ARTIFACTORY_IMAGE_TAG override given
-            if (requestedTag) {
-              artifactoryTag = requestedTag
-            } else {
-              artifactoryTag = env.VERSION_TAG
-            }
-          }
-
-          // Select target repo based on branch
-          String targetRepo = (env.BRANCH_NAME == 'main')
-            ? env.ARTIFACTORY_REPO_PROD   // pushes for main go to docker-prod
-            : env.ARTIFACTORY_REPO_LOCAL  // others go to docker-local
+          // For non-main branches, use IMAGE_TAG (aceest-<build#>)
+          String artifactoryTag = env.IMAGE_TAG
 
           withCredentials([
             usernamePassword(
@@ -228,7 +205,7 @@ pipeline {
               set -euxo pipefail
 
               LOCAL_IMAGE="\${IMAGE_NAME}:\${IMAGE_TAG}"
-              REMOTE_IMAGE="\${ARTIFACTORY_REGISTRY}/${targetRepo}/\${IMAGE_NAME}:${artifactoryTag}"
+              REMOTE_IMAGE="\${ARTIFACTORY_REGISTRY}/${ARTIFACTORY_REPO_STAGE}/\${IMAGE_NAME}:${artifactoryTag}"
 
               # Tag local image with remote registry/repo + chosen tag
               docker tag "\${LOCAL_IMAGE}" "\${REMOTE_IMAGE}"
@@ -268,10 +245,18 @@ pipeline {
         AZURE_CONTAINER_IMAGE_NAME      = 'docker-local/aceest-app' // repo/image path
         // Always deploy the exact tag we pushed to docker-local for this build
         AZURE_CONTAINER_IMAGE_TAG       = "${IMAGE_TAG}"
+
+        // Reuse existing JFrog Docker credentials from Jenkins
+        ARTIFACTORY_CRED_ID = 'jfrogcred'
       }
       steps {
         withCredentials([
-          string(credentialsId: env.AZURE_CRED_ID, variable: 'AZURE_SP_JSON')
+          string(credentialsId: env.AZURE_CRED_ID, variable: 'AZURE_SP_JSON'),
+          usernamePassword(
+            credentialsId: env.ARTIFACTORY_CRED_ID,
+            usernameVariable: 'REG_USER',
+            passwordVariable: 'REG_PASS'
+          )
         ]) {
           script {
             // For non-main branches, VERSION_TAG is already IMAGE_TAG, so we just resolve deployTag
@@ -307,12 +292,14 @@ pipeline {
 
               echo "Deploying image to Azure Stage Web App: \${IMAGE}"
 
-              # Configure Stage Web App to use this container image
+              # Configure Stage Web App to use this container image and private registry credentials
               az webapp config container set \\
                 --resource-group "${AZURE_RESOURCE_GROUP}" \\
                 --name "${AZURE_WEBAPP_NAME}" \\
                 --docker-custom-image-name "\${IMAGE}" \\
-                --docker-registry-server-url "https://\${AZURE_CONTAINER_REGISTRY_SERVER}"
+                --docker-registry-server-url "https://\${AZURE_CONTAINER_REGISTRY_SERVER}" \\
+                --docker-registry-server-user "\${REG_USER}" \\
+                --docker-registry-server-password "\${REG_PASS}"
 
               # Restart the Web App to ensure new image is pulled
               az webapp restart --resource-group "${AZURE_RESOURCE_GROUP}" --name "${AZURE_WEBAPP_NAME}"
@@ -324,89 +311,61 @@ pipeline {
       }
     }
 
-    stage('Deploy to Azure Web App (Production)') {
+     stage('Docker: Push Image to Artifactory (Prod)') {
       when {
         expression {
-          // Deploy only when the branch is main (i.e. after MR is merged into main)
+          // Push to prod repo only for main branch (i.e. MR merged to main)
           return env.BRANCH_NAME == 'main'
         }
       }
       environment {
-        // Jenkins credentials: secret text containing SP JSON (tenant, appId, password, subscription)
-        AZURE_CRED_ID = 'azure-sp-credentials'
-
-        // Azure resource details for PRODUCTION
-        AZURE_RESOURCE_GROUP = 'rg-aceest'      // TODO: replace with your prod RG
-        AZURE_WEBAPP_NAME    = 'aceest-webapp' // TODO: replace with your prod Web App name
-
-        // Container registry / image - align with your Artifactory/registry setup
-        // For production deploys, use the docker-prod repo in Artifactory
-        AZURE_CONTAINER_REGISTRY_SERVER = 'trial5okz6u.jfrog.io'
-        AZURE_CONTAINER_IMAGE_NAME      = 'docker-prod/aceest-app'   // repo/image path
-        // By default deploy the same tag we pushed to Artifactory
-        AZURE_CONTAINER_IMAGE_TAG       = ''                          // leave empty to use Artifactory/IMAGE_TAG
+        ARTIFACTORY_REGISTRY  = 'trial5okz6u.jfrog.io'
+        ARTIFACTORY_REPO_PROD = 'docker-prod'
+        ARTIFACTORY_CRED_ID   = 'jfrogcred'
+        // Optional override: provide a specific prod tag, else semantic v<BUILD_NUMBER>
+        ARTIFACTORY_IMAGE_TAG = ''
       }
       steps {
-        withCredentials([
-          string(credentialsId: env.AZURE_CRED_ID, variable: 'AZURE_SP_JSON')
-        ]) {
-          script {
-            // Ensure VERSION_TAG is set for main builds (v<BUILD_NUMBER>)
-            if (env.BRANCH_NAME == 'main' && !env.VERSION_TAG?.trim()) {
-              env.VERSION_TAG = "v${env.BUILD_NUMBER}"
-            }
+        script {
+          // Ensure semantic version for main builds, e.g. v1, v2, ...
+          if (!env.VERSION_TAG?.trim()) {
+            env.VERSION_TAG = "v${env.BUILD_NUMBER}"
+          }
 
-            // Decide what tag Azure should deploy
-            String deployTag = env.AZURE_CONTAINER_IMAGE_TAG?.trim()
-            if (!deployTag) {
-              if (env.BRANCH_NAME == 'main') {
-                deployTag = env.VERSION_TAG   // e.g. v10
-              } else {
-                deployTag = env.IMAGE_TAG     // fallback for non-main (though stage is gated to main)
-              }
-            }
+          String requestedTag = env.ARTIFACTORY_IMAGE_TAG?.trim()
+          String artifactoryTag = requestedTag ? requestedTag : env.VERSION_TAG
 
+          withCredentials([
+            usernamePassword(
+              credentialsId: env.ARTIFACTORY_CRED_ID,
+              usernameVariable: 'ART_USER',
+              passwordVariable: 'ART_PASS'
+            )
+          ]) {
             sh """
               set -euxo pipefail
 
-              # Write SP JSON to a temp file
-              SP_FILE=\$(mktemp)
-              echo "\${AZURE_SP_JSON}" > "\${SP_FILE}"
+              LOCAL_IMAGE="\${IMAGE_NAME}:\${IMAGE_TAG}"
+              REMOTE_IMAGE="\${ARTIFACTORY_REGISTRY}/${ARTIFACTORY_REPO_PROD}/\${IMAGE_NAME}:${artifactoryTag}"
 
-              TENANT=\$(jq -r '.tenant' "\${SP_FILE}")
-              APPID=\$(jq -r '.appId' "\${SP_FILE}")
-              PASSWORD=\$(jq -r '.password' "\${SP_FILE}")
-              SUBSCRIPTION=\$(jq -r '.subscription' "\${SP_FILE}")
+              # Tag local image with remote registry/repo + chosen tag
+              docker tag "\${LOCAL_IMAGE}" "\${REMOTE_IMAGE}"
 
-              # Login to Azure using service principal
-              az login --service-principal \\
-                --username "\${APPID}" \\
-                --password "\${PASSWORD}" \\
-                --tenant "\${TENANT}"
+              # Login to Artifactory Docker registry (note: no https:// in registry name)
+              echo "\${ART_PASS}" | docker login "\${ARTIFACTORY_REGISTRY}" \\
+                --username "\${ART_USER}" --password-stdin
 
-              az account set --subscription "\${SUBSCRIPTION}"
+              # Push image
+              docker push "\${REMOTE_IMAGE}"
 
-              # Construct image reference
-              IMAGE="\${AZURE_CONTAINER_REGISTRY_SERVER}/\${AZURE_CONTAINER_IMAGE_NAME}:\${deployTag}"
-
-              echo "Deploying image to Azure Web App: \${IMAGE}"
-
-              # Configure Web App to use this container image
-              az webapp config container set \\
-                --resource-group "${AZURE_RESOURCE_GROUP}" \\
-                --name "${AZURE_WEBAPP_NAME}" \\
-                --docker-custom-image-name "\${IMAGE}" \\
-                --docker-registry-server-url "https://\${AZURE_CONTAINER_REGISTRY_SERVER}"
-
-              # Restart the Web App to ensure new image is pulled
-              az webapp restart --resource-group "${AZURE_RESOURCE_GROUP}" --name "${AZURE_WEBAPP_NAME}"
-
-              rm -f "\${SP_FILE}"
+              # (Optional) logout
+              docker logout "\${ARTIFACTORY_REGISTRY}" || true
             """
           }
         }
       }
     }
+
   }
 
   post {
