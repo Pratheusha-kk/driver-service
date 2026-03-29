@@ -9,6 +9,9 @@ pipeline {
     IMAGE_NAME = "aceest-app"
     IMAGE_TAG  = "aceest-${BUILD_NUMBER}"
 
+    // Semantic version for main branch deployments, e.g. v1, v2, ...
+    VERSION_TAG = ""
+
     // Jenkins "Configure System" -> SonarQube servers -> Name
     // Must match exactly, otherwise withSonarQubeEnv() fails.
     SONARQUBE_SERVER = "LocalSonar"
@@ -177,29 +180,42 @@ pipeline {
     stage('Docker: Push Image to Artifactory') {
       environment {
         // Override these with your real Artifactory config
-        ARTIFACTORY_REGISTRY = 'trial5okz6u.jfrog.io' // Docker registry host, no protocol, no trailing slash
-        ARTIFACTORY_REPO     = 'docker-local'         // e.g. docker, docker-local
-        ARTIFACTORY_CRED_ID  = 'jfrogcred'
-        // Optional override: provide a different tag for Artifactory, else fall back to IMAGE_TAG
-        ARTIFACTORY_IMAGE_TAG = ''
+        ARTIFACTORY_REGISTRY   = 'trial5okz6u.jfrog.io' // Docker registry host, no protocol, no trailing slash
+        ARTIFACTORY_REPO_LOCAL = 'docker-local'         // for non-main branches
+        ARTIFACTORY_REPO_PROD  = 'docker-prod'          // for main (post-merge) builds
+        ARTIFACTORY_CRED_ID    = 'jfrogcred'
+        // Optional override: provide a different tag for Artifactory, else fall back to computed tag
+        ARTIFACTORY_IMAGE_TAG  = ''
       }
       steps {
         script {
+          // For main: semantic version v<BUILD_NUMBER>, for others keep IMAGE_TAG
+          if (env.BRANCH_NAME == 'main') {
+            env.VERSION_TAG = "v${env.BUILD_NUMBER}"
+          } else {
+            env.VERSION_TAG = env.IMAGE_TAG
+          }
+
           // Compute the tag requested
           String requestedTag = env.ARTIFACTORY_IMAGE_TAG?.trim()
-
-          // If we are not on main, ignore any vX override and force build-number tag
           String artifactoryTag
+
           if (env.BRANCH_NAME != 'main') {
+            // non-main: always use IMAGE_TAG (aceest-<build#>)
             artifactoryTag = env.IMAGE_TAG
           } else {
-            // On main: allow override; if not provided, fall back to IMAGE_TAG
+            // main: use VERSION_TAG (vN) unless ARTIFACTORY_IMAGE_TAG override given
             if (requestedTag) {
               artifactoryTag = requestedTag
             } else {
-              artifactoryTag = env.IMAGE_TAG
+              artifactoryTag = env.VERSION_TAG
             }
           }
+
+          // Select target repo based on branch
+          String targetRepo = (env.BRANCH_NAME == 'main')
+            ? env.ARTIFACTORY_REPO_PROD   // pushes for main go to docker-prod
+            : env.ARTIFACTORY_REPO_LOCAL  // others go to docker-local
 
           withCredentials([
             usernamePassword(
@@ -212,9 +228,9 @@ pipeline {
               set -euxo pipefail
 
               LOCAL_IMAGE="\${IMAGE_NAME}:\${IMAGE_TAG}"
-              REMOTE_IMAGE="\${ARTIFACTORY_REGISTRY}/\${ARTIFACTORY_REPO}/\${IMAGE_NAME}:${artifactoryTag}"
+              REMOTE_IMAGE="\${ARTIFACTORY_REGISTRY}/${targetRepo}/\${IMAGE_NAME}:${artifactoryTag}"
 
-              # Tag local image with remote registry/repo + optional tag override
+              # Tag local image with remote registry/repo + chosen tag
               docker tag "\${LOCAL_IMAGE}" "\${REMOTE_IMAGE}"
 
               # Login to Artifactory Docker registry (note: no https:// in registry name)
@@ -248,8 +264,9 @@ pipeline {
         AZURE_WEBAPP_NAME    = 'aceest-webapp' // TODO: replace with your Web App name
 
         // Container registry / image - align with your Artifactory/registry setup
-        AZURE_CONTAINER_REGISTRY_SERVER = 'artifactory.example.com'   // same as ARTIFACTORY_REGISTRY if using Artifactory
-        AZURE_CONTAINER_IMAGE_NAME      = 'docker-local/aceest-app'   // repo/image path
+        // For production deploys, use the docker-prod repo in Artifactory
+        AZURE_CONTAINER_REGISTRY_SERVER = 'trial5okz6u.jfrog.io'
+        AZURE_CONTAINER_IMAGE_NAME      = 'docker-prod/aceest-app'   // repo/image path
         // By default deploy the same tag we pushed to Artifactory
         AZURE_CONTAINER_IMAGE_TAG       = ''                          // leave empty to use Artifactory/IMAGE_TAG
       }
@@ -258,18 +275,19 @@ pipeline {
           string(credentialsId: env.AZURE_CRED_ID, variable: 'AZURE_SP_JSON')
         ]) {
           script {
-            // Mirror the same tag-selection rules used for Artifactory
-            String requestedTag = env.ARTIFACTORY_IMAGE_TAG?.trim()
-            String artifactoryTag
-            if (env.BRANCH_NAME != 'main') {
-              artifactoryTag = env.IMAGE_TAG
-            } else {
-              artifactoryTag = requestedTag ? requestedTag : env.IMAGE_TAG
+            // Ensure VERSION_TAG is set for main builds (v<BUILD_NUMBER>)
+            if (env.BRANCH_NAME == 'main' && !env.VERSION_TAG?.trim()) {
+              env.VERSION_TAG = "v${env.BUILD_NUMBER}"
             }
 
+            // Decide what tag Azure should deploy
             String deployTag = env.AZURE_CONTAINER_IMAGE_TAG?.trim()
             if (!deployTag) {
-              deployTag = artifactoryTag
+              if (env.BRANCH_NAME == 'main') {
+                deployTag = env.VERSION_TAG   // e.g. v10
+              } else {
+                deployTag = env.IMAGE_TAG     // fallback for non-main (though stage is gated to main)
+              }
             }
 
             sh """
