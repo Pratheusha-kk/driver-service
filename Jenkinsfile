@@ -287,10 +287,12 @@ pipeline {
               SP_FILE=\$(mktemp)
               echo "\${AZURE_SP_JSON}" > "\${SP_FILE}"
 
-              TENANT=\$(jq -r '.tenant' "\${SP_FILE}")
-              APPID=\$(jq -r '.appId' "\${SP_FILE}")
-              PASSWORD=\$(jq -r '.password' "\${SP_FILE}")
-              SUBSCRIPTION=\$(jq -r '.subscription' "\${SP_FILE}")
+              # Adapt to both {tenant,appId,password,subscription} and
+              # {tenantId,clientId,clientSecret,subscriptionId} shapes.
+              TENANT=\$(jq -r '.tenant // .tenantId' "\${SP_FILE}")
+              APPID=\$(jq -r '.appId // .clientId' "\${SP_FILE}")
+              PASSWORD=\$(jq -r '.password // .clientSecret' "\${SP_FILE}")
+              SUBSCRIPTION=\$(jq -r '.subscription // .subscriptionId' "\${SP_FILE}")
 
               # Login to Azure using service principal
               az login --service-principal \\
