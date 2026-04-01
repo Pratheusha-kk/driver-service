@@ -36,9 +36,22 @@ pipeline {
             # Only install secrets once, not every build
             sonar plugins list || sonar install secrets
             ls -al
-            sonar analyze --file sonar-project.properties
+            sonar analyze --file sonar-project.properties  | tee sonar-report.txt
           '''
       }
+      post {
+                always {
+                    script {
+                        if (fileExists('sonar-report.json')) {
+                            sh 'cat sonar-report.json'
+                        } else {
+                            echo 'No sonar-report.json found'
+                        }
+                    }
+                    archiveArtifacts artifacts: 'sonar-report.json', allowEmptyArchive: true
+                    archiveArtifacts artifacts: 'sonar-report.txt', allowEmptyArchive: true
+                }
+            }
     }
     stage('Python: Unit Tests (PyUnit)') {
       steps {
@@ -48,8 +61,15 @@ pipeline {
           . .venv/bin/activate
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
-          python -m unittest discover -s tests -p "test_*.py"
+          pip install pytest pytest-html
+          export PYTHONPATH="${WORKSPACE}:${PYTHONPATH:-}"
+          pytest tests --html=pytest-report.html --self-contained-html
         '''
+      }
+      post {
+        always {
+          archiveArtifacts artifacts: 'pytest-report.html', allowEmptyArchive: true
+        }
       }
     }
 
@@ -139,10 +159,16 @@ pipeline {
           # Install UI test requirements on the agent (includes behave, selenium, webdriver-manager, etc.)
           python -m pip install -r ui-tests/requirements.txt
 
-          # Run behave from the ui-tests directory, pointing to the app in the container
+          # Run behave from the ui-tests directory, pointing to the app in the container,
+          # and output a Cucumber JSON report
           cd ui-tests
-          BASE_URL="${UI_BASE_URL}" python -m behave
+          BASE_URL="${UI_BASE_URL}" python -m behave -f json -o cucumber-report.json
         '''
+      }
+      post {
+        always {
+          archiveArtifacts artifacts: 'ui-tests/cucumber-report.json', allowEmptyArchive: true
+        }
       }
     }
 
