@@ -8,11 +8,12 @@ ACEest Fitness & Gym — a minimal Flask web **app + API** used as the base appl
   - JSON API endpoints
   - HTML GUI using Jinja2 templates (`templates/`, `static/styles.css`)
 - **Dependencies** (`requirements.txt`)
-- **Unit and integration tests (unittest / PyUnit)** (`tests/`)
+- **Unit and integration tests (unittest / PyUnit, with pytest used in CI via GitHub Actions)** (`tests/`)
 - **UI tests (BDD with Behave + Selenium)** (`ui-tests/`)
 - **Dockerfile** for containerization
-- **Jenkinsfile** for CI pipeline
+- **Jenkinsfile** for CI/CD pipeline
 - **SonarQube** configuration (`sonar-project.properties`)
+- **GitHub Actions** workflow for automated lint (flake8), tests (pytest), and Docker image build (`.github/workflows/main.yml`)
 
 ---
 

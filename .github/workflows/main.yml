@@ -28,13 +28,12 @@ jobs:
           python -m pip install pytest
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      # Optional: basic lint step (can be commented out if you don't want it)
-      # - name: Install flake8
-      #   run: pip install flake8
-      #
-      # - name: Lint with flake8
-      #   run: |
-      #     flake8 app.py tests || true
+      - name: Install flake8
+        run: pip install flake8
+
+      - name: Lint with flake8
+        run: |
+          flake8 app.py tests
 
       - name: Run pytest
         env:
