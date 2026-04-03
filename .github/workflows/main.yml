@@ -1,0 +1,50 @@
+name: CI - Build, Docker, Test
+
+on:
+  push:
+    branches:
+      - main
+      - "*"
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      # Optional: basic lint step (can be commented out if you don't want it)
+      # - name: Install flake8
+      #   run: pip install flake8
+      #
+      # - name: Lint with flake8
+      #   run: |
+      #     flake8 app.py tests || true
+
+      - name: Run pytest
+        env:
+          PYTHONPATH: .
+        run: |
+          pytest -q
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        run: |
+          docker build -t aceest-app:ci-test .

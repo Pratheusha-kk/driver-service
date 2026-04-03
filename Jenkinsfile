@@ -162,12 +162,14 @@ pipeline {
           # Run behave from the ui-tests directory, pointing to the app in the container,
           # and output a Cucumber JSON report
           cd ui-tests
-          BASE_URL="${UI_BASE_URL}" python -m behave -f json -o cucumber-report.json
+          BASE_URL="${UI_BASE_URL}" python -m behave -f json -o cucumber-report.json -f behave_html_formatter:HTMLFormatter -o reports/ui-tests-report.html
         '''
       }
       post {
         always {
           archiveArtifacts artifacts: 'ui-tests/cucumber-report.json', allowEmptyArchive: true
+          archiveArtifacts artifacts: 'ui-tests/reports/ui-tests-report.html', allowEmptyArchive: true
+
         }
       }
     }
