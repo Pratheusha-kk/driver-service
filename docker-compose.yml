@@ -1,0 +1,27 @@
+services:
+  driver-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: driver-service
+    ports:
+      - "3003:3003"
+    environment:
+      PORT: 3003
+      SERVICE_NAME: driver-service
+      DB_PATH: /app/data/driver-service.db
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3003/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped

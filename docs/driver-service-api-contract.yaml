@@ -1,0 +1,424 @@
+openapi: 3.0.3
+info:
+  title: Driver Service API
+  version: 1.0.0
+  description: >
+    API contract for the Driver Service in the BITS ride-hailing microservices
+    assignment. This service is responsible for driver onboarding, vehicle details,
+    driver availability, and supplying active drivers for Trip Service assignment.
+
+servers:
+  - url: http://localhost:3003
+    description: Local development
+  - url: http://127.0.0.1:3003
+    description: Local Docker/Compose
+
+tags:
+  - name: Health
+  - name: Drivers
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Returns service health and current timestamp.
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /v1/drivers:
+    get:
+      tags:
+        - Drivers
+      summary: List drivers
+      description: >
+        Returns all drivers or a filtered set of drivers. Trip Service should use
+        `is_active=true` when searching for assignable drivers.
+      parameters:
+        - name: is_active
+          in: query
+          required: false
+          description: Filters drivers by availability status.
+          schema:
+            type: boolean
+        - name: city
+          in: query
+          required: false
+          description: Filters drivers by city.
+          schema:
+            type: string
+            example: Bengaluru
+        - name: vehicle_type
+          in: query
+          required: false
+          description: Filters drivers by vehicle type.
+          schema:
+            type: string
+            example: SUV
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of drivers to return.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            example: 10
+      responses:
+        "200":
+          description: List of drivers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriverListResponse"
+        "400":
+          description: Invalid query parameter
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    post:
+      tags:
+        - Drivers
+      summary: Create driver
+      description: Onboards a new driver with vehicle details.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDriverRequest"
+      responses:
+        "201":
+          description: Driver created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateDriverResponse"
+        "400":
+          description: Invalid request payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Duplicate unique field such as phone, email, or vehicle plate
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/drivers/{id}:
+    get:
+      tags:
+        - Drivers
+      summary: Get driver by ID
+      description: Returns one driver and the full availability history.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Driver identifier
+          schema:
+            type: integer
+            minimum: 1
+            example: 2
+      responses:
+        "200":
+          description: Driver found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetDriverResponse"
+        "400":
+          description: Invalid driver ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Driver not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/drivers/{id}/status:
+    patch:
+      tags:
+        - Drivers
+      summary: Update driver status
+      description: Marks a driver as active or inactive.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Driver identifier
+          schema:
+            type: integer
+            minimum: 1
+            example: 2
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDriverStatusRequest"
+      responses:
+        "200":
+          description: Driver status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpdateDriverStatusResponse"
+        "400":
+          description: Invalid request payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Driver not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+        service:
+          type: string
+          example: driver-service
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-04-15T16:46:20.795Z"
+      required:
+        - status
+        - service
+        - timestamp
+
+    Driver:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 2
+        name:
+          type: string
+          example: Nikhil Bose
+        phone:
+          type: string
+          example: "9059702987"
+        email:
+          type: string
+          format: email
+          example: nikhil.bose644@gmail.com
+        license_number:
+          type: string
+          nullable: true
+          example: null
+        vehicle_type:
+          type: string
+          example: Auto
+        vehicle_model:
+          type: string
+          nullable: true
+          example: null
+        vehicle_plate:
+          type: string
+          example: TS37DZ2639
+        city:
+          type: string
+          example: Bengaluru
+        is_active:
+          type: boolean
+          example: true
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-07-20T08:27:02.000Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-07-20T08:27:02.000Z"
+      required:
+        - id
+        - name
+        - phone
+        - email
+        - vehicle_type
+        - vehicle_plate
+        - city
+        - is_active
+        - created_at
+        - updated_at
+
+    DriverStatusHistory:
+      type: object
+      properties:
+        is_active:
+          type: boolean
+          example: true
+        reason:
+          type: string
+          nullable: true
+          example: driver_onboarded
+        changed_at:
+          type: string
+          format: date-time
+          example: "2025-07-20T08:27:02.000Z"
+      required:
+        - is_active
+        - changed_at
+
+    DriverWithStatusHistory:
+      allOf:
+        - $ref: "#/components/schemas/Driver"
+        - type: object
+          properties:
+            status_history:
+              type: array
+              items:
+                $ref: "#/components/schemas/DriverStatusHistory"
+          required:
+            - status_history
+
+    CreateDriverRequest:
+      type: object
+      properties:
+        id:
+          type: integer
+          nullable: true
+          example: 101
+        name:
+          type: string
+          example: Amar Rao
+        phone:
+          type: string
+          example: "9876543210"
+        email:
+          type: string
+          format: email
+          example: amar.rao@example.com
+        license_number:
+          type: string
+          nullable: true
+          example: null
+        vehicle_type:
+          type: string
+          example: SUV
+        vehicle_model:
+          type: string
+          nullable: true
+          example: Hyundai Creta
+        vehicle_plate:
+          type: string
+          example: KA01AB1234
+        city:
+          type: string
+          example: Bengaluru
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2025-07-30T05:58:56.000Z"
+        is_active:
+          type: boolean
+          example: true
+      required:
+        - name
+        - phone
+        - email
+        - vehicle_type
+        - vehicle_plate
+        - city
+
+    UpdateDriverStatusRequest:
+      type: object
+      properties:
+        is_active:
+          type: boolean
+          example: false
+        reason:
+          type: string
+          nullable: true
+          example: driver_signed_off
+      required:
+        - is_active
+
+    DriverListResponse:
+      type: object
+      properties:
+        count:
+          type: integer
+          example: 10
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Driver"
+      required:
+        - count
+        - data
+
+    CreateDriverResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Driver created successfully.
+        data:
+          $ref: "#/components/schemas/Driver"
+      required:
+        - message
+        - data
+
+    GetDriverResponse:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/DriverWithStatusHistory"
+      required:
+        - data
+
+    UpdateDriverStatusResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Driver status updated successfully.
+        data:
+          $ref: "#/components/schemas/Driver"
+      required:
+        - message
+        - data
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: HttpError
+        message:
+          type: string
+          example: driver id must be a positive integer.
+        correlationId:
+          type: string
+          example: 6c59ebd4-b70c-46ed-ae6c-8cfc2ff97fe0
+      required:
+        - error
+        - message
+        - correlationId

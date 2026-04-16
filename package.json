@@ -1,0 +1,19 @@
+{
+  "name": "driver-service",
+  "version": "1.0.0",
+  "description": "Driver onboarding and availability service for the ride-hailing microservices assignment.",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "seed:drivers": "node scripts/seed-drivers.js",
+    "check": "node --test"
+  },
+  "engines": {
+    "node": ">=25.0.0"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}
