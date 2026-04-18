@@ -13,6 +13,31 @@ Driver onboarding and availability microservice for the BITS ride-hailing assign
 - SQLite database dedicated to this service
 - CSV seed support using the provided `ride_drivers.csv` dataset
 
+## Architecture
+
+```mermaid
+flowchart TD
+    client["Client / Postman / Trip Service"] --> routes["Express Routes<br/>/v1/drivers"]
+    routes --> controller["Controller Layer"]
+    controller --> service["Service Layer<br/>business rules + error handling"]
+    service --> repo["Repository Layer"]
+    repo --> db[("SQLite DB<br/>data/driver-service.db")]
+    repo --> history[("driver_status_history")]
+
+    seed["Seed Script<br/>scripts/seed-drivers.js"] --> db
+    dataset["RIDE Dataset<br/>ride_drivers.csv"] --> seed
+
+    middleware["Middleware<br/>correlation IDs + error handler"] --> routes
+```
+
+The service follows a simple layered architecture:
+
+- Routes expose the REST APIs.
+- Controllers validate requests and shape responses.
+- Services apply business logic and handle domain-level checks.
+- Repositories talk to SQLite and store driver/status history data.
+- The seed script loads the shared driver dataset into the service database.
+
 ## API
 
 ### Health
@@ -43,6 +68,25 @@ Sample request:
 ### Get driver
 
 `GET /v1/drivers/:id`
+
+### Update driver
+
+`PUT /v1/drivers/:id`
+
+Sample request:
+
+```json
+{
+  "name": "Amar Rao",
+  "phone": "9876543210",
+  "email": "amar.rao@example.com",
+  "vehicle_type": "Sedan",
+  "vehicle_model": "Honda City",
+  "vehicle_plate": "KA01AB1234",
+  "city": "Bengaluru",
+  "is_active": true
+}
+```
 
 ### List drivers
 

@@ -153,6 +153,59 @@ function updateDriverStatus(id, isActive, reason) {
   }
 }
 
+function updateDriver(id, driver) {
+  const now = new Date().toISOString();
+  const existingDriver = findDriverById(id);
+
+  if (!existingDriver) {
+    return null;
+  }
+
+  const updateStatement = database.prepare(`
+    UPDATE drivers
+    SET name = ?, phone = ?, email = ?, license_number = ?, vehicle_type = ?,
+        vehicle_model = ?, vehicle_plate = ?, city = ?, is_active = ?, updated_at = ?
+    WHERE id = ?
+  `);
+  const historyStatement = database.prepare(`
+    INSERT INTO driver_status_history (driver_id, is_active, reason, changed_at)
+    VALUES (?, ?, ?, ?)
+  `);
+
+  database.exec("BEGIN");
+
+  try {
+    updateStatement.run(
+      driver.name,
+      driver.phone,
+      driver.email,
+      driver.license_number,
+      driver.vehicle_type,
+      driver.vehicle_model,
+      driver.vehicle_plate,
+      driver.city,
+      driver.is_active ? 1 : 0,
+      now,
+      id
+    );
+
+    if (existingDriver.is_active !== driver.is_active) {
+      historyStatement.run(
+        id,
+        driver.is_active ? 1 : 0,
+        "driver_updated",
+        now
+      );
+    }
+
+    database.exec("COMMIT");
+    return findDriverById(id);
+  } catch (error) {
+    database.exec("ROLLBACK");
+    throw error;
+  }
+}
+
 function getDriverStatusHistory(id) {
   const statement = database.prepare(`
     SELECT is_active, reason, changed_at
@@ -173,5 +226,6 @@ module.exports = {
   findDriverById,
   getDriverStatusHistory,
   listDrivers,
+  updateDriver,
   updateDriverStatus
 };

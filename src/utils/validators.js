@@ -78,6 +78,22 @@ function validateDriverPayload(payload) {
   };
 }
 
+function validateDriverUpdatePayload(payload) {
+  const driver = validateDriverPayload(payload);
+
+  return {
+    name: driver.name,
+    phone: driver.phone,
+    email: driver.email,
+    license_number: driver.license_number,
+    vehicle_type: driver.vehicle_type,
+    vehicle_model: driver.vehicle_model,
+    vehicle_plate: driver.vehicle_plate,
+    city: driver.city,
+    is_active: driver.is_active
+  };
+}
+
 function validateStatusPayload(payload) {
   if (payload.is_active === undefined) {
     throw new HttpError(400, "is_active is required.");
@@ -120,5 +136,6 @@ function parseListFilters(query) {
 module.exports = {
   parseListFilters,
   validateDriverPayload,
+  validateDriverUpdatePayload,
   validateStatusPayload
 };

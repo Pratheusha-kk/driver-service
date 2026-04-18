@@ -2,11 +2,13 @@ const {
   changeDriverStatus,
   fetchDriver,
   fetchDrivers,
-  onboardDriver
+  onboardDriver,
+  updateDriverProfile
 } = require("../services/driverService");
 const {
   parseListFilters,
   validateDriverPayload,
+  validateDriverUpdatePayload,
   validateStatusPayload
 } = require("../utils/validators");
 const { HttpError } = require("../utils/httpError");
@@ -60,9 +62,21 @@ function updateDriverStatusHandler(req, res) {
   });
 }
 
+function updateDriverHandler(req, res) {
+  const driverId = parseDriverId(req.params.id);
+  const payload = validateDriverUpdatePayload(req.body);
+  const driver = updateDriverProfile(driverId, payload);
+
+  res.json({
+    message: "Driver updated successfully.",
+    data: driver
+  });
+}
+
 module.exports = {
   createDriverHandler,
   getDriverHandler,
   listDriversHandler,
+  updateDriverHandler,
   updateDriverStatusHandler
 };

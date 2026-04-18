@@ -93,6 +93,34 @@
       }
     },
     {
+      "name": "Update Driver",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Nikhil Bose\",\n  \"phone\": \"9059702987\",\n  \"email\": \"nikhil.bose644@gmail.com\",\n  \"vehicle_type\": \"Sedan\",\n  \"vehicle_model\": \"Honda City\",\n  \"vehicle_plate\": \"TS37DZ2639\",\n  \"city\": \"Bengaluru\",\n  \"is_active\": true\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/drivers/{{driverId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "v1",
+            "drivers",
+            "{{driverId}}"
+          ]
+        },
+        "description": "Updates an existing driver's profile and vehicle details."
+      }
+    },
+    {
       "name": "Create Driver",
       "request": {
         "method": "POST",

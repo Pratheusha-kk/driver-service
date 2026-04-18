@@ -149,6 +149,51 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+    put:
+      tags:
+        - Drivers
+      summary: Update driver by ID
+      description: Updates driver profile and vehicle details.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Driver identifier
+          schema:
+            type: integer
+            minimum: 1
+            example: 2
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDriverRequest"
+      responses:
+        "200":
+          description: Driver updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpdateDriverResponse"
+        "400":
+          description: Invalid request payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Driver not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Duplicate unique field such as phone, email, or vehicle plate
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /v1/drivers/{id}/status:
     patch:
@@ -360,6 +405,47 @@ components:
       required:
         - is_active
 
+    UpdateDriverRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Amar Rao
+        phone:
+          type: string
+          example: "9876543210"
+        email:
+          type: string
+          format: email
+          example: amar.rao@example.com
+        license_number:
+          type: string
+          nullable: true
+          example: DL-09-AB-123456
+        vehicle_type:
+          type: string
+          example: Sedan
+        vehicle_model:
+          type: string
+          nullable: true
+          example: Honda City
+        vehicle_plate:
+          type: string
+          example: KA01AB1234
+        city:
+          type: string
+          example: Bengaluru
+        is_active:
+          type: boolean
+          example: true
+      required:
+        - name
+        - phone
+        - email
+        - vehicle_type
+        - vehicle_plate
+        - city
+
     DriverListResponse:
       type: object
       properties:
@@ -400,6 +486,18 @@ components:
         message:
           type: string
           example: Driver status updated successfully.
+        data:
+          $ref: "#/components/schemas/Driver"
+      required:
+        - message
+        - data
+
+    UpdateDriverResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Driver updated successfully.
         data:
           $ref: "#/components/schemas/Driver"
       required:

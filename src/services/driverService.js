@@ -3,6 +3,7 @@ const {
   findDriverById,
   getDriverStatusHistory,
   listDrivers,
+  updateDriver,
   updateDriverStatus
 } = require("../repositories/driverRepository");
 const { HttpError } = require("../utils/httpError");
@@ -62,9 +63,20 @@ function changeDriverStatus(driverId, statusPayload) {
   }
 }
 
+function updateDriverProfile(driverId, driverPayload) {
+  ensureDriverExists(driverId);
+
+  try {
+    return updateDriver(driverId, driverPayload);
+  } catch (error) {
+    handleDatabaseError(error);
+  }
+}
+
 module.exports = {
   changeDriverStatus,
   fetchDriver,
   fetchDrivers,
-  onboardDriver
+  onboardDriver,
+  updateDriverProfile
 };
