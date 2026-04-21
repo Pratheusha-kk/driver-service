@@ -23,7 +23,7 @@ paths:
       tags:
         - Health
       summary: Health check
-      description: Returns service health and current timestamp.
+      description: Returns service health, current timestamp, and uptime.
       responses:
         "200":
           description: Service is healthy
@@ -31,6 +31,40 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthResponse"
+
+  /metrics:
+    get:
+      tags:
+        - Health
+      summary: Service metrics
+      description: >
+        Returns service-level health, CPU, memory, uptime, and response-time metrics.
+      responses:
+        "200":
+          description: Metrics snapshot returned successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MetricsResponse"
+
+  /metrics/prometheus:
+    get:
+      tags:
+        - Health
+      summary: Prometheus metrics
+      description: >
+        Returns service metrics in Prometheus text exposition format for scraping.
+      responses:
+        "200":
+          description: Prometheus metrics returned successfully
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: |
+                  # HELP driver_service_up Driver service health status.
+                  # TYPE driver_service_up gauge
+                  driver_service_up{service="driver-service"} 1
 
   /v1/drivers:
     get:
@@ -251,10 +285,199 @@ components:
           type: string
           format: date-time
           example: "2026-04-15T16:46:20.795Z"
+        uptime_seconds:
+          type: number
+          format: float
+          example: 42.18
       required:
         - status
         - service
         - timestamp
+        - uptime_seconds
+
+    MetricsHealth:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+        service:
+          type: string
+          example: driver-service
+        started_at:
+          type: string
+          format: date-time
+          example: "2026-04-20T08:15:40.112Z"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-04-20T08:16:12.408Z"
+      required:
+        - status
+        - service
+        - started_at
+        - timestamp
+
+    CpuMetrics:
+      type: object
+      properties:
+        cores:
+          type: integer
+          example: 8
+        user_ms:
+          type: number
+          format: float
+          example: 34.72
+        system_ms:
+          type: number
+          format: float
+          example: 12.11
+        total_ms:
+          type: number
+          format: float
+          example: 46.83
+        utilization_percentage:
+          type: number
+          format: float
+          example: 1.93
+        load_average:
+          type: array
+          items:
+            type: number
+            format: float
+          example: [1.2, 1.1, 1.0]
+      required:
+        - cores
+        - user_ms
+        - system_ms
+        - total_ms
+        - utilization_percentage
+        - load_average
+
+    MemoryMetrics:
+      type: object
+      properties:
+        rss_bytes:
+          type: integer
+          format: int64
+          example: 63414272
+        heap_total_bytes:
+          type: integer
+          format: int64
+          example: 18350080
+        heap_used_bytes:
+          type: integer
+          format: int64
+          example: 11345024
+        external_bytes:
+          type: integer
+          format: int64
+          example: 1948509
+        array_buffers_bytes:
+          type: integer
+          format: int64
+          example: 10515
+      required:
+        - rss_bytes
+        - heap_total_bytes
+        - heap_used_bytes
+        - external_bytes
+        - array_buffers_bytes
+
+    RouteResponseTimeMetrics:
+      type: object
+      properties:
+        count:
+          type: integer
+          example: 3
+        average_response_time_ms:
+          type: number
+          format: float
+          example: 4.25
+        max_response_time_ms:
+          type: number
+          format: float
+          example: 8.11
+        last_response_time_ms:
+          type: number
+          format: float
+          example: 3.62
+        last_status_code:
+          type: integer
+          example: 200
+      required:
+        - count
+        - average_response_time_ms
+        - max_response_time_ms
+        - last_response_time_ms
+        - last_status_code
+
+    ResponseTimeMetrics:
+      type: object
+      properties:
+        total_requests_started:
+          type: integer
+          example: 25
+        total_requests_completed:
+          type: integer
+          example: 25
+        active_requests:
+          type: integer
+          example: 0
+        average_response_time_ms:
+          type: number
+          format: float
+          example: 3.91
+        max_response_time_ms:
+          type: number
+          format: float
+          example: 12.77
+        last_response_time_ms:
+          type: number
+          format: float
+          example: 4.1
+        status_codes:
+          type: object
+          additionalProperties:
+            type: integer
+          example:
+            "200": 24
+            "404": 1
+        by_route:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/RouteResponseTimeMetrics"
+      required:
+        - total_requests_started
+        - total_requests_completed
+        - active_requests
+        - average_response_time_ms
+        - max_response_time_ms
+        - last_response_time_ms
+        - status_codes
+        - by_route
+
+    MetricsResponse:
+      type: object
+      properties:
+        health:
+          $ref: "#/components/schemas/MetricsHealth"
+        uptime_seconds:
+          type: number
+          format: float
+          example: 42.18
+        cpu:
+          $ref: "#/components/schemas/CpuMetrics"
+        memory:
+          $ref: "#/components/schemas/MemoryMetrics"
+        response_time:
+          $ref: "#/components/schemas/ResponseTimeMetrics"
+      required:
+        - health
+        - uptime_seconds
+        - cpu
+        - memory
+        - response_time
 
     Driver:
       type: object

@@ -10,6 +10,8 @@ Driver onboarding and availability microservice for the BITS ride-hailing assign
 - Historical status tracking
 - Active-driver filtering for Trip Service integration
 - Structured JSON logs with correlation IDs
+- Lightweight service metrics for health, CPU, memory, and response times
+- Prometheus and Grafana local observability stack
 - SQLite database dedicated to this service
 - CSV seed support using the provided `ride_drivers.csv` dataset
 
@@ -43,6 +45,25 @@ The service follows a simple layered architecture:
 ### Health
 
 `GET /health`
+
+Returns basic service health and uptime.
+
+### Metrics
+
+`GET /metrics`
+
+Returns a JSON metrics snapshot with:
+
+- health status and service timestamps
+- CPU usage and utilization percentage
+- memory usage
+- response-time aggregates and per-route timings
+
+### Prometheus Metrics
+
+`GET /metrics/prometheus`
+
+Returns the same service metrics in Prometheus text format so Prometheus and Grafana can scrape them.
 
 ### Create driver
 
@@ -145,17 +166,106 @@ docker run -p 3003:3003 driver-service
 
 ## Docker Compose
 
+The compose setup mounts `./data` into the container so the seeded `driver-service.db` stays available across restarts.
+It also brings up:
+
+- Prometheus on `http://127.0.0.1:9090`
+- Grafana on `http://127.0.0.1:3000`
+
+Grafana is preconfigured with a Prometheus datasource.
+Default login:
+
+- username: `admin`
+- password: `admin`
+
+An importable sample dashboard is available at:
+
+`observability/grafana/dashboards/driver-service-overview.json`
+
+### Bring everything up from scratch
+
+Use these steps when you want a clean startup with the driver CSV seeded into SQLite.
+
+1. Make sure Docker is running and port `3003` is free on your machine.
+
 ```bash
-docker compose up --build
+lsof -iTCP:3003 -sTCP:LISTEN -n -P
 ```
 
-The compose setup mounts `./data` into the container so the seeded `driver-service.db` stays available across restarts.
+If you see a non-Docker process like `ssh` listening on `3003`, stop it first or Docker may not be reachable on `http://127.0.0.1:3003`.
+
+2. Start the full stack with a fresh database.
+
+```bash
+docker compose down
+rm -f data/driver-service.db
+docker compose up --build -d
+```
+
+3. Confirm the containers are healthy.
+
+```bash
+docker compose ps
+```
+
+4. Verify the service, seeded data, and Prometheus endpoint.
+
+```bash
+curl http://127.0.0.1:3003/health
+curl "http://127.0.0.1:3003/v1/drivers?limit=5"
+curl http://127.0.0.1:3003/metrics/prometheus
+```
+
+On startup, the service automatically seeds from `RIDE Dataset/ride_drivers.csv` when the database is empty. If `data/driver-service.db` already contains rows, startup skips reseeding.
+
+### Bring the stack up without deleting existing data
+
+```bash
+docker compose up --build -d
+```
+
+### If you need to seed manually
+
+```bash
+docker compose exec driver-service npm run seed:drivers
+```
+
+### Open Grafana
+
+After the stack is up:
+
+- Driver Service: `http://127.0.0.1:3003`
+- Prometheus: `http://127.0.0.1:9090`
+- Grafana: `http://127.0.0.1:3000`
+
+Grafana login:
+
+- username: `admin`
+- password: `admin`
+
+### Import the sample dashboard
+
+1. Open Grafana at `http://127.0.0.1:3000`
+2. Go to `Dashboards` -> `New` -> `Import`
+3. Upload `observability/grafana/dashboards/driver-service-overview.json`
+4. Choose the `Prometheus` datasource
+5. Click `Import`
+
+If the dashboard is empty at first, generate a little traffic and refresh:
+
+```bash
+curl http://127.0.0.1:3003/health
+curl "http://127.0.0.1:3003/v1/drivers?limit=5"
+curl http://127.0.0.1:3003/metrics/prometheus
+```
 
 Useful checks:
 
 ```bash
 docker compose ps
 curl http://127.0.0.1:3003/health
+curl http://127.0.0.1:3003/metrics
+curl http://127.0.0.1:3003/metrics/prometheus
 curl http://127.0.0.1:3003/v1/drivers/2
 ```
 
