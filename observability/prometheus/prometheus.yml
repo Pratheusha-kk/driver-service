@@ -8,3 +8,39 @@ scrape_configs:
     static_configs:
       - targets:
           - driver-service:3003
+
+  - job_name: trip-service
+    metrics_path: /metrics/prometheus
+    static_configs:
+      - targets:
+          - trip-service:3002
+
+  - job_name: vroom-gateway
+    metrics_path: /metrics/prometheus
+    static_configs:
+      - targets:
+          - vroom-gateway:8080
+
+  - job_name: vroom-ui
+    metrics_path: /metrics/prometheus
+    static_configs:
+      - targets:
+          - vroom-ui:5173
+
+  - job_name: rider-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+          - rider-service:8081
+
+  - job_name: payment-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+          - payment-service:8082
+
+  - job_name: rating-feedback-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+          - rating-feedback-service:8085

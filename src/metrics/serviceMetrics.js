@@ -28,7 +28,8 @@ function getOrCreateRouteMetrics(routeKey) {
       totalResponseTimeMs: 0,
       maxResponseTimeMs: 0,
       lastResponseTimeMs: 0,
-      lastStatusCode: null
+      lastStatusCode: null,
+      statusCodes: {}
     };
   }
 
@@ -76,6 +77,8 @@ function beginRequest(method, path) {
     );
     routeMetrics.lastResponseTimeMs = durationMs;
     routeMetrics.lastStatusCode = statusCode;
+    routeMetrics.statusCodes[statusCode] =
+      (routeMetrics.statusCodes[statusCode] || 0) + 1;
   };
 }
 
@@ -123,7 +126,8 @@ function getRouteMetricsSnapshot() {
         ),
         max_response_time_ms: round(metrics.maxResponseTimeMs),
         last_response_time_ms: round(metrics.lastResponseTimeMs),
-        last_status_code: metrics.lastStatusCode
+        last_status_code: metrics.lastStatusCode,
+        status_codes: metrics.statusCodes
       }
     ])
   );
@@ -333,6 +337,25 @@ function getPrometheusMetrics() {
         route
       })
     );
+  }
+
+  lines.push(
+    "# HELP driver_service_route_response_status_total Total completed requests grouped by route and status code.",
+    "# TYPE driver_service_route_response_status_total counter"
+  );
+
+  for (const [route, routeMetrics] of Object.entries(
+    metrics.response_time.by_route
+  )) {
+    for (const [statusCode, count] of Object.entries(routeMetrics.status_codes)) {
+      lines.push(
+        createMetricLine("driver_service_route_response_status_total", count, {
+          service: metrics.health.service,
+          route,
+          status: statusCode
+        })
+      );
+    }
   }
 
   lines.push(

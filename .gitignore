@@ -1,6 +1,12 @@
 node_modules/
+*.class
 data/*.db
 data/*.db-*
 .env
 npm-debug.log*
 .idea/
+.vscode/
+coverage/
+dist/
+*.log
+.DS_Store
